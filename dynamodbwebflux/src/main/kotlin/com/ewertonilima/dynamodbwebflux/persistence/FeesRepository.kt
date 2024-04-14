@@ -7,14 +7,9 @@ import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedAsyncClient
 import software.amazon.awssdk.enhanced.dynamodb.MappedTableResource
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema
 import software.amazon.awssdk.enhanced.dynamodb.model.BatchWriteItemEnhancedRequest
-import software.amazon.awssdk.enhanced.dynamodb.model.BatchWriteResult
 import software.amazon.awssdk.enhanced.dynamodb.model.PutItemEnhancedRequest
 import software.amazon.awssdk.enhanced.dynamodb.model.WriteBatch
-import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemRequest
-import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse
 import software.amazon.awssdk.services.dynamodb.model.DynamoDbException
-import software.amazon.awssdk.services.dynamodb.model.WriteRequest
-import java.util.concurrent.CompletableFuture
 
 @Repository
 class FeesRepository(
@@ -27,6 +22,7 @@ class FeesRepository(
 
     fun save(feesModel: FeesModel) {
         try {
+
             table.putItemWithResponse(PutItemEnhancedRequest.builder(FeesModel::class.java).item(feesModel).build())
                 .get()
             logger.info("Saving content to DynamoDb")
@@ -37,9 +33,12 @@ class FeesRepository(
 
     fun saveAll(feesList: List<FeesModel>) {
         try {
+            val feesTable : MappedTableResource<FeesModel> = dynamoDbEnhancedAsyncClient.table(TABLE_NAME, tableSchema)
+
             // Convert list of FeesModel items into a list of WriteRequest objects
             val writeBatches = feesList.map { model ->
                 WriteBatch.builder(FeesModel::class.java)
+                    .mappedTableResource(feesTable)
                     .addPutItem(model)
                     .build()
             }
@@ -48,10 +47,9 @@ class FeesRepository(
             val batchWriteItemRequest = BatchWriteItemEnhancedRequest.builder()
                 .writeBatches(writeBatches)
                 .build()
-
             // Execute batch write operation
             dynamoDbEnhancedAsyncClient.batchWriteItem(batchWriteItemRequest)
-
+            logger.info("Saving content to DynamoDb")
         } catch (e: Exception) {
             logger.error("Unexpected error occurred: $e")
         } catch (e: DynamoDbException) {
