@@ -2,13 +2,8 @@ package com.ewertonilima.dynamodbwebflux.persistence
 
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Repository
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbAsyncTable
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedAsyncClient
-import software.amazon.awssdk.enhanced.dynamodb.MappedTableResource
-import software.amazon.awssdk.enhanced.dynamodb.TableSchema
-import software.amazon.awssdk.enhanced.dynamodb.model.BatchWriteItemEnhancedRequest
-import software.amazon.awssdk.enhanced.dynamodb.model.PutItemEnhancedRequest
-import software.amazon.awssdk.enhanced.dynamodb.model.WriteBatch
+import software.amazon.awssdk.enhanced.dynamodb.*
+import software.amazon.awssdk.enhanced.dynamodb.model.*
 import software.amazon.awssdk.services.dynamodb.model.DynamoDbException
 
 @Repository
@@ -22,7 +17,6 @@ class FeesRepository(
 
     fun save(feesModel: FeesModel) {
         try {
-
             table.putItemWithResponse(PutItemEnhancedRequest.builder(FeesModel::class.java).item(feesModel).build())
                 .get()
             logger.info("Saving content to DynamoDb")
@@ -33,7 +27,7 @@ class FeesRepository(
 
     fun saveAll(feesList: List<FeesModel>) {
         try {
-            val feesTable : MappedTableResource<FeesModel> = dynamoDbEnhancedAsyncClient.table(TABLE_NAME, tableSchema)
+            val feesTable: MappedTableResource<FeesModel> = dynamoDbEnhancedAsyncClient.table(TABLE_NAME, tableSchema)
 
             // Convert list of FeesModel items into a list of WriteRequest objects
             val writeBatches = feesList.map { model ->
@@ -55,7 +49,18 @@ class FeesRepository(
         } catch (e: DynamoDbException) {
             logger.error("Error occurred while saving items to DynamoDB: $e")
         }
+    }
 
+    fun getItemByKey(dn: Int): PagePublisher<FeesModel>? {
+        val key = Key.builder().partitionValue(dn).build()
+
+        val condition = QueryConditional.keyEqualTo(key)
+
+        val query = QueryEnhancedRequest.builder()
+            .queryConditional(condition)
+            .build()
+
+        return table.query(query) // Assuming 'key' is the primary key value
     }
 
 
