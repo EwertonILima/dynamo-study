@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository
 import software.amazon.awssdk.enhanced.dynamodb.*
 import software.amazon.awssdk.enhanced.dynamodb.model.*
 import software.amazon.awssdk.services.dynamodb.model.DynamoDbException
+import java.util.concurrent.CompletableFuture
 
 @Repository
 class FeesRepository(
@@ -61,6 +62,29 @@ class FeesRepository(
             .build()
 
         return table.query(query) // Assuming 'key' is the primary key value
+    }
+
+    fun getDynamoDbItem(dn: Int, dateUpdate: String): CompletableFuture<FeesModel> {
+        val keyToGet = Key.builder().partitionValue(dn).sortValue(dateUpdate).build()
+
+        val request = GetItemEnhancedRequest.builder()
+            .key(keyToGet)
+            .build()
+
+        var returnedItem = CompletableFuture<FeesModel>()
+        try {
+            returnedItem = table.getItem(request)
+
+            if (returnedItem != null) {
+                logger.info("Amazon DynamoDB table attributes: ${returnedItem.get()}")
+
+            } else {
+                logger.info("No item found with the key $returnedItem}!") // String interpolation for clearer message
+            }
+        } catch (e: DynamoDbException) {
+            System.err.println(e.message) // Use System.err for error messages
+        }
+        return returnedItem
     }
 
 
