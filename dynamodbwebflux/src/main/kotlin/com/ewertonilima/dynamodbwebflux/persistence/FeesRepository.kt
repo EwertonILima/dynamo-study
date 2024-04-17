@@ -2,10 +2,24 @@ package com.ewertonilima.dynamodbwebflux.persistence
 
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Repository
-import software.amazon.awssdk.enhanced.dynamodb.*
-import software.amazon.awssdk.enhanced.dynamodb.model.*
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbAsyncTable
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedAsyncClient
+import software.amazon.awssdk.enhanced.dynamodb.Key
+import software.amazon.awssdk.enhanced.dynamodb.MappedTableResource
+import software.amazon.awssdk.enhanced.dynamodb.TableSchema
+import software.amazon.awssdk.enhanced.dynamodb.model.BatchWriteItemEnhancedRequest
+import software.amazon.awssdk.enhanced.dynamodb.model.GetItemEnhancedRequest
+import software.amazon.awssdk.enhanced.dynamodb.model.PagePublisher
+import software.amazon.awssdk.enhanced.dynamodb.model.PutItemEnhancedRequest
+import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional
+import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest
+import software.amazon.awssdk.enhanced.dynamodb.model.UpdateItemEnhancedRequest
+import software.amazon.awssdk.enhanced.dynamodb.model.WriteBatch
 import software.amazon.awssdk.services.dynamodb.model.DynamoDbException
+import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
+import java.time.LocalDate
 import java.util.concurrent.CompletableFuture
+
 
 @Repository
 class FeesRepository(
@@ -14,7 +28,7 @@ class FeesRepository(
 
     private val logger = LoggerFactory.getLogger(this.javaClass)
 
-    var table: DynamoDbAsyncTable<FeesModel> = dynamoDbEnhancedAsyncClient.table(TABLE_NAME, tableSchema)
+    private var table: DynamoDbAsyncTable<FeesModel> = dynamoDbEnhancedAsyncClient.table(TABLE_NAME, tableSchema)
 
     fun save(feesModel: FeesModel) {
         try {
@@ -52,7 +66,7 @@ class FeesRepository(
         }
     }
 
-    fun getItemByKey(dn: Int): PagePublisher<FeesModel>? {
+    fun getItemsByKey(dn: Int): PagePublisher<FeesModel>? {
         val key = Key.builder().partitionValue(dn).build()
 
         val condition = QueryConditional.keyEqualTo(key)
@@ -64,7 +78,7 @@ class FeesRepository(
         return table.query(query) // Assuming 'key' is the primary key value
     }
 
-    fun getDynamoDbItem(dn: Int, dateUpdate: String): CompletableFuture<FeesModel> {
+    fun getDynamoDbItem(dn: Int?, dateUpdate: String?): CompletableFuture<FeesModel> {
         val keyToGet = Key.builder().partitionValue(dn).sortValue(dateUpdate).build()
 
         val request = GetItemEnhancedRequest.builder()
@@ -75,7 +89,7 @@ class FeesRepository(
         try {
             returnedItem = table.getItem(request)
 
-            if (returnedItem != null) {
+            if (returnedItem.get() != null) {
                 logger.info("Amazon DynamoDB table attributes: ${returnedItem.get()}")
 
             } else {
@@ -85,6 +99,24 @@ class FeesRepository(
             System.err.println(e.message) // Use System.err for error messages
         }
         return returnedItem
+    }
+
+    fun updateDynamoDbItem(feesModel: FeesModel) {
+        val dateUpdate = LocalDate.now().toString()
+        val updatedFee = feesModel.copy(dateUpdate = dateUpdate)
+
+        val request = UpdateItemEnhancedRequest.builder(FeesModel::class.java)
+            .item(updatedFee).build()
+
+        try {
+            table.updateItem(request)
+        } catch (e: ResourceNotFoundException) {
+            System.err.println(e.message)
+            System.exit(1)
+        } catch (e: DynamoDbException) {
+            System.err.println(e.message)
+            System.exit(1)
+        }
     }
 
 

@@ -4,7 +4,12 @@ import com.ewertonilima.dynamodbwebflux.persistence.FeesModel
 import com.ewertonilima.dynamodbwebflux.persistence.FeesRepository
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.*
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/v1/fees")
@@ -13,20 +18,32 @@ class FeesController(
 ) {
     @PostMapping
     fun save(@RequestBody feesModel: FeesModel): ResponseEntity<Any> {
-        feesRepository.save(feesModel)
+        val entity = feesRepository.getDynamoDbItem(feesModel.dn, feesModel.dateUpdate)
+        if (entity.get() != null) {
+            feesRepository.updateDynamoDbItem(feesModel)
+        } else {
+            feesRepository.save(feesModel)
+        }
         return ResponseEntity.status(HttpStatus.CREATED).build()
     }
 
     @PostMapping("/batch")
     fun saveAll(@RequestBody feesList: List<FeesModel>): ResponseEntity<Any> {
-        feesRepository.saveAll(feesList)
+        feesList.forEach {
+            val entity = feesRepository.getDynamoDbItem(it.dn, it.dateUpdate)
+            if (entity.get() != null) {
+                feesRepository.updateDynamoDbItem(it)
+            } else {
+                feesRepository.save(it)
+            }
+        }
         return ResponseEntity.status(HttpStatus.CREATED).build()
     }
 
     @GetMapping("/{dn}")
     fun findById(@PathVariable("dn") dn: Int): ResponseEntity<Any> {
 
-        val fee = feesRepository.getItemByKey(dn)
+        val fee = feesRepository.getItemsByKey(dn)
 
         return ResponseEntity.status(HttpStatus.OK).body(fee?.items())
     }
