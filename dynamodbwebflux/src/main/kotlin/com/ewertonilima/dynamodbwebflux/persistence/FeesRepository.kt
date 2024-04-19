@@ -8,6 +8,7 @@ import software.amazon.awssdk.enhanced.dynamodb.Key
 import software.amazon.awssdk.enhanced.dynamodb.MappedTableResource
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema
 import software.amazon.awssdk.enhanced.dynamodb.model.BatchWriteItemEnhancedRequest
+import software.amazon.awssdk.enhanced.dynamodb.model.DeleteItemEnhancedRequest
 import software.amazon.awssdk.enhanced.dynamodb.model.GetItemEnhancedRequest
 import software.amazon.awssdk.enhanced.dynamodb.model.PagePublisher
 import software.amazon.awssdk.enhanced.dynamodb.model.PutItemEnhancedRequest
@@ -15,6 +16,7 @@ import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest
 import software.amazon.awssdk.enhanced.dynamodb.model.UpdateItemEnhancedRequest
 import software.amazon.awssdk.enhanced.dynamodb.model.WriteBatch
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import software.amazon.awssdk.services.dynamodb.model.DynamoDbException
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
 import java.time.LocalDate
@@ -66,7 +68,7 @@ class FeesRepository(
         }
     }
 
-    fun getItemsByKey(dn: Int): PagePublisher<FeesModel>? {
+    fun getItemsByKey(dn: Int?): PagePublisher<FeesModel>? {
         val key = Key.builder().partitionValue(dn).build()
 
         val condition = QueryConditional.keyEqualTo(key)
@@ -117,6 +119,28 @@ class FeesRepository(
             System.err.println(e.message)
             System.exit(1)
         }
+    }
+
+    fun deleteItem(dn: Int?, dateUpdate: String?){
+
+        val key = Key.builder().partitionValue(dn).sortValue(dateUpdate).build()
+
+        val keyToGet = HashMap<String, AttributeValue>()
+
+        keyToGet["cod_prod_crto_cred"] = AttributeValue.builder()
+            .s(dn.toString())
+            .build()
+
+        val deleteReq = DeleteItemEnhancedRequest.builder()
+            .key(key)
+            .build()
+
+        try {
+            table.deleteItemWithResponse(deleteReq).get()
+        } catch (e: Exception) {
+            logger.error("Error occurred while delete items to DynamoDB: $e")
+        }
+
     }
 
 
